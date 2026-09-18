@@ -8,37 +8,37 @@ namespace Gracio {
 
         // --- Native Imports ---
         private static class Native {
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern IntPtr gracio_create_int(long numerator, long denominator);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern IntPtr gracio_create_float(double value);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_destroy(IntPtr g);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_set_precision_limit(IntPtr g, uint limit);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_add(IntPtr a, IntPtr b);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_subtract(IntPtr a, IntPtr b);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_multiply(IntPtr a, IntPtr b);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_divide(IntPtr a, IntPtr b);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern double gracio_to_double(IntPtr g);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern IntPtr gracio_to_string(IntPtr g);
 
-            [DllImport("gracio", CallingConvention = CallingConvention.Cdecl)]
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_free_string(IntPtr s);
         }
 
