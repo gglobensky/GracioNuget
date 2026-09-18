@@ -1,0 +1,1 @@
+import { Gracio } from 'gracio'; const a = new Gracio(1n, 3n); const b = new Gracio(1n, 6n); a.add(b); console.log('Result:', a.toString()); if (a.toString() === '1/2') { console.log('✅ SUCCESS: Import and calculation working!'); } else { console.log('❌ FAILURE: Result was ' + a.toString()); process.exit(1); }

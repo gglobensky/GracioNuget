@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Precision Drift Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f9; color: #333; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { width: 90%; max-width: 1000px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; margin-bottom: 10px; }
+        p { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
+        .stats { display: flex; justify-content: space-around; margin-bottom: 30px; font-weight: bold; }
+        .stat-box { text-align: center; padding: 15px; border-radius: 10px; background: #ecf0f1; min-width: 200px; }
+        .precise { color: #27ae60; }
+        .float { color: #e74c3c; }
+        #progressContainer { width: 100%; background: #eee; border-radius: 5px; margin-bottom: 20px; display: none; }
+        #progressBar { width: 0%; height: 10px; background: #3498db; border-radius: 5px; transition: width 0.1s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>The Butterfly Effect (Chaotic Map)</h1>
+        <p>Simulating a non-linear feedback loop using the Logistic Map ($x_{n+1} = 4 \cdot x_n \cdot (1 - x_n)$).<br>
+           In chaotic systems, tiny floating-point errors cascade exponentially into total divergence.</p>
+
+        <div id="progressContainer">
+            <div id="progressBar"></div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div>Float Final Value</div>
+                <div id="floatVal" class="float">Calculating...</div>
+            </div>
+            <div class="stat-box">
+                <div>Precise Final Value</div>
+                <div id="preciseVal" class="precise">Calculating...</div>
+            </div>
+            <div class="stat-box">
+                <div>Precision Gap (Drift)</div>
+                <div id="driftVal" style="color: #f39c12;">Calculating...</div>
+            </div>
+        </div>
+
+        <canvas id="precisionChart"></canvas>
+    </div>
+
+    <!-- Load the bundled library as an IIFE -->
+    <script src="dist/gracio.bundle.js"></script>
+
+    <script>
+        async function runSimulation() {
+            const { Gracio } = window.GracioLib;
+
+            const iterations = 250; // Chaos diverges quickly, no need for millions
+            const r = 4; 
+            const startVal = 0.7;
+
+            const floatData = [];
+            const preciseData = [];
+            const labels = [];
+
+            let fX = startVal;
+            
+            // Initialize with a precision limit of 100 digits for high-fidelity chaos
+            const PRECISION_LIMIT = 100;
+            let pX = Gracio.fromFloat(startVal);
+            pX.precisionLimit = PRECISION_LIMIT;
+
+            const rRatio = Gracio.fromInt(r);
+
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            progressContainer.style.display = 'block';
+
+            let i = 0;
+            function processTimeSlice() {
+                const startTime = performance.now();
+                const TIME_BUDGET_MS = 12; // Leave room for browser rendering (approx 60fps)
+
+                while (performance.now() - startTime < TIME_BUDGET_MS && i <= iterations) {
+                    const val = pX.toFloat();
+                    labels.push(i);
+                    floatData.push(fX);
+                    preciseData.push(val);
+
+                    // Logistic Map: x = r * x * (1 - x)
+                    fX = r * fX * (1 - fX);
+
+                    const oneMinusPX = new Gracio(1n, 1n).subtract(pX);
+                    pX.multiply(rRatio).multiply(oneMinusPX);
+                    
+                    i++;
+                }
+
+                const progress = (i / (iterations + 1)) * 100;
+                progressBar.style.width = progress + '%';
+
+                if (i <= iterations) {
+                    requestAnimationFrame(processTimeSlice);
+                } else {
+                    finalize();
+                }
+            }
+
+            function finalize() {
+                progressContainer.style.display = 'none';
+                
+                const finalFloat = fX;
+                const finalPrecise = pX.toFloat();
+                
+                document.getElementById('floatVal').innerText = finalFloat.toFixed(10);
+                document.getElementById('preciseVal').innerText = finalPrecise.toFixed(10);
+                document.getElementById('driftVal').innerText = Math.abs(finalFloat - finalPrecise).toFixed(10);
+
+                const ctx = document.getElementById('precisionChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: 'IEEE 754 Float', data: floatData, borderColor: '#e74c3c', tension: 0.1 },
+                            { label: 'Gracio', data: preciseData, borderColor: '#27ae60', tension: 0.1 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, max: 1, title: { display: true, text: 'Value (x)' } },
+                            x: { title: { display: true, text: 'Iteration' } }
+                        },
+                        plugins: {
+                            title: { display: true, text: 'Butterfly Effect: Float vs Ratio Divergence' }
+                        }
+                    }
+                });
+            }
+
+            requestAnimationFrame(processTimeSlice);
+        }
+
+        window.onload = runSimulation;
+    </script>
+</body>
+</html>

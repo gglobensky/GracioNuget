@@ -1,0 +1,6 @@
+// tsconfig.test.json - (optional for specific test config)
+{
+  "extends": "./tsconfig.json",
+  "include": ["test/**/*"],
+  "exclude": ["node_modules"]
+}

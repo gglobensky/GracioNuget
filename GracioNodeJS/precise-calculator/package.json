@@ -1,0 +1,46 @@
+{
+  "name": "gracio",
+  "type": "module",
+  "version": "1.0.1",
+  "description": "A high-performance, arbitrary-precision rational arithmetic library for TypeScript and JavaScript.",
+  "author": "gglobensky",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gglobensky/Gracio.git"
+  },
+  "keywords": [
+    "math",
+    "precision",
+    "rational",
+    "fraction",
+    "bigint"
+  ],
+  "main": "dist/src/library-entry.js",
+  "module": "dist/src/library-entry.js",
+  "types": "dist/src/library-entry.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "bundle": "npx esbuild src/library-entry.ts --bundle --minify --outfile=dist/gracio.bundle.js --format=iife --global-name=GracioLib",
+    "start": "tsx src/demo.ts",
+    "test": "npm run build && mocha dist/**/*.test.js"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.0",
+    "chai": "^4.3.7",
+    "mocha": "^12.0.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.3.3",
+    "big.js": "^7.0.1",
+    "decimal.js": "^10.6.0",
+    "fraction.js": "^5.3.4"
+  },
+  "dependencies": {}
+}
