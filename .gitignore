@@ -1,0 +1,24 @@
+# Visual Studio / .NET
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.sln.docstates
+
+# C++ Build Artifacts
+out/
+build/
+*.exe
+*.dll
+*.lib
+*.pdb
+*.exp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
