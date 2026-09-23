@@ -74,7 +74,7 @@ namespace Gracio.Tests {
         public void DivisionByZero_ThrowsException() {
             using var a = new Ratio(1, 2);
             using var b = new Ratio(0, 1);
-            Assert.Throws<Exception>(() => a.Divide(b));
+            Assert.Throws<DivideByZeroException>(() => a.Divide(b));
         }
     }
 }

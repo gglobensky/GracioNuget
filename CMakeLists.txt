@@ -24,7 +24,7 @@ add_library(${TARGET_NAME} SHARED ${SOURCES})
 set_target_properties(${TARGET_NAME} PROPERTIES 
     PREFIX "" 
     SUFFIX ".dll"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/out/bin/native"
 )
 
 message(STATUS "Gracio Native build configured for ${CMAKE_SYSTEM_PROCESSOR}")

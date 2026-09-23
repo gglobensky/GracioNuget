@@ -4,5 +4,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>$(ProjectDir)..\out\bin\managed\</OutputPath>
+
+    <!-- NuGet Packaging -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Gracio</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>GracioTeam</Authors>
+    <Description>A high-performance rational number library with a native C++ core.</Description>
+    <PackageTags>Mathematics;Rational;BigInt;Native</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Bundle the native DLL into the NuGet package -->
+    <None Include="..\out\bin\native\gracio_native.dll">
+      <Pack>true</Pack>
+      <PackagePath>runtimes/win-x64/native/</PackagePath>
+    </None>
+  </ItemGroup>
 </Project>

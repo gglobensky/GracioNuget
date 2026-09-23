@@ -4,6 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <OutputPath>$(ProjectDir)..\out\bin\tests\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,6 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /Y &quot;$(ProjectDir)..\..\out\build\x64-Release\bin\gracio_native.dll&quot; &quot;$(TargetDir)&quot;" />
+    <Exec Command="xcopy /Y &quot;$(ProjectDir)..\out\bin\native\gracio_native.dll&quot; &quot;$(TargetDir)&quot;" />
   </Target>
 </Project>

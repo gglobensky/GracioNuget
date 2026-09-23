@@ -7,31 +7,45 @@ const SMALL_PRIMES = [
   421n, 431n, 433n, 439n, 443n, 449n, 457n, 461n, 463n, 467n, 479n, 487n, 491n, 499n
 ];
 
+import { NativeBridge } from './native-bridge.js';
+
 export class Gracio {
+  // These are kept for backward compatibility and fallback mode
   public numerator: bigint;
   public denominator: bigint;
-  public precisionLimit?: number; // Max decimal digits of precision to maintain
+  public precisionLimit?: number; 
+  private _nativeHandle: any = null;
 
   private static readonly MIN_SIMPLIFY_THRESHOLD = 10n ** 20n;
   private lastSimplifiedDigits = 0;
 
   constructor(numerator: bigint, denominator: bigint = 1n, precisionLimit?: number) {
+    // If native is available, we'll initialize the handle via fromInt.
+    // But for simplicity in the constructor, we can use the Pure TS state and then sync to native if needed.
     if (denominator === 0n) throw new Error("Denominator cannot be zero");
-    
-    // Ensure the denominator is always positive
-    if (denominator < 0n) {
-      numerator *= -1n;
-      denominator *= -1n;
-    }
+    if (denominator < 0n) { numerator *= -1n; denominator *= -1n; }
 
     this.numerator = numerator;
     this.denominator = denominator;
     this.precisionLimit = precisionLimit;
-    this.simplify();
+    
+    try {
+        // Attempt to link this instance to a native handle if bridge is active
+        this._nativeHandle = NativeBridge.createFromInts(this.numerator, this.denominator);
+    } catch (e) {
+        this.simplify(); // Fallback to TS simplification
+    }
   }
 
   static fromInt(value: number | bigint): Gracio {
-    return new Gracio(BigInt(value), 1n);
+    try {
+        const handle = NativeBridge.createFromInts(BigInt(value), 1n);
+        const g = new Gracio(BigInt(value), 1n);
+        g._nativeHandle = handle;
+        return g;
+    } catch (e) {
+        return new Gracio(BigInt(value), 1n);
+    }
   }
 
   /**
@@ -39,6 +53,17 @@ export class Gracio {
    * Uses string parsing to ensure "human-intuitive" exactness (e.g., "0.1" -> 1/10).
    */
   static fromFloat(value: number | string): Gracio {
+    try {
+        if (typeof value === 'number') {
+            const handle = NativeBridge.createFromFloat(value);
+            // We still need the TS state for fallback and properties
+            const g = new Gracio(0n, 1n); // Dummy init
+            g._nativeHandle = handle;
+            // Use native to get initial state if possible or just leave as is
+            return g;
+        }
+    } catch (e) {}
+
     const s = String(value).trim().toLowerCase();
     if (s === 'nan' || s === 'infinity' || s === '-infinity') {
       throw new Error("Cannot represent NaN or Infinity as a ratio");
@@ -151,6 +176,10 @@ export class Gracio {
   // --- Mutable Operations (Modifies current object and returns 'this' for chaining) ---
 
   add(other: Gracio): this {
+    if (this._nativeHandle) {
+        NativeBridge.add(this._nativeHandle, other._nativeHandle || other);
+        return this;
+    }
     if (this.denominator === other.denominator) {
       this.numerator += other.numerator;
     } else {
@@ -163,6 +192,10 @@ export class Gracio {
   }
 
   subtract(other: Gracio): this {
+    if (this._nativeHandle) {
+        NativeBridge.subtract(this._nativeHandle, other._nativeHandle || other);
+        return this;
+    }
     if (this.denominator === other.denominator) {
       this.numerator -= other.numerator;
     } else {
@@ -175,13 +208,15 @@ export class Gracio {
   }
 
   multiply(other: Gracio): this {
+    if (this._nativeHandle) {
+        NativeBridge.multiply(this._nativeHandle, other._nativeHandle || other);
+        return this;
+    }
     const n1 = this.abs(this.numerator);
     const d1 = this.abs(this.denominator);
     const n2 = this.abs(other.numerator);
     const d2 = this.abs(other.denominator);
 
-    // ASYMMETRIC FAST PATH: If at least one operand is small, we can afford raw multiplication.
-    // We only cross-simplify when BOTH numbers are large to prevent explosive digit growth.
     const SMALL_THRESHOLD = 18446744073709551616n; // 2^64
     if (n1 < SMALL_THRESHOLD || d1 < SMALL_THRESHOLD || n2 < SMALL_THRESHOLD || d2 < SMALL_THRESHOLD) {
       this.numerator *= other.numerator;
@@ -191,7 +226,6 @@ export class Gracio {
       return this;
     }
 
-    // CROSS-SIMPLIFICATION: Prevents explosive growth for very large BigInts.
     const g1 = this.calculateGCD(n1, d2);
     const g2 = this.calculateGCD(n2, d1);
 
@@ -204,13 +238,15 @@ export class Gracio {
 
   divide(other: Gracio): this {
     if (other.numerator === 0n) throw new Error("Cannot divide by zero");
-    
+    if (this._nativeHandle) {
+        NativeBridge.divide(this._nativeHandle, other._nativeHandle || other);
+        return this;
+    }
     const n1 = this.abs(this.numerator);
     const d1 = this.abs(this.denominator);
     const n2 = this.abs(other.numerator);
     const d2 = this.abs(other.denominator);
 
-    // ASYMMETRIC FAST PATH: If at least one operand is small, avoid expensive GCDs.
     const SMALL_THRESHOLD = 18446744073709551616n; // 2^64
     if (n1 < SMALL_THRESHOLD || d1 < SMALL_THRESHOLD || n2 < SMALL_THRESHOLD || d2 < SMALL_THRESHOLD) {
       this.numerator *= other.denominator;
@@ -224,9 +260,8 @@ export class Gracio {
       return this;
     }
 
-    // CROSS-SIMPLIFICATION: multiply by reciprocal with GCD pruning.
-    const g1 = this.calculateGCD(n1, n2); // numerator1 vs reciprocalDenominator (other.numerator)
-    const g2 = this.calculateGCD(d2, d1); // reciprocalNumerator (other.denominator) vs denominator1
+    const g1 = this.calculateGCD(n1, n2); 
+    const g2 = this.calculateGCD(d2, d1);
 
     this.numerator = (this.numerator / g1) * (d2 / g2);
     this.denominator = (this.denominator / g2) * (n2 / g1);
@@ -269,6 +304,10 @@ export class Gracio {
    * Handles negative exponents by inverting the ratio.
    */
   public pow(exponent: bigint): this {
+    if (this._nativeHandle) {
+        NativeBridge.pow(this._nativeHandle, exponent);
+        return this;
+    }
     if (exponent === 0n) {
       this.numerator = 1n;
       this.denominator = 1n;
@@ -280,7 +319,6 @@ export class Gracio {
     let newDen = this.denominator ** absExp;
 
     if (exponent < 0n) {
-      // Swap numerator and denominator for negative exponents
       [newNum, newDen] = [newDen, newNum];
     }
 
@@ -291,13 +329,15 @@ export class Gracio {
   }
 
   toFloat(): number {
+    if (this._nativeHandle) {
+        return NativeBridge.toDouble(this._nativeHandle);
+    }
     this.simplify();
     const n = this.abs(this.numerator);
     const d = this.abs(this.denominator);
 
     if (n === 0n) return 0;
 
-    // Avoid overflow by scaling down if numbers exceed the safe range for Number (approx 1024 bits)
     const nBits = n.toString(2).length;
     const dBits = d.toString(2).length;
     const maxBits = Math.max(nBits, dBits);
@@ -305,36 +345,23 @@ export class Gracio {
     if (maxBits > 1000) {
       const nShift = BigInt(nBits - 60);
       const dShift = BigInt(dBits - 60);
-      
-      // Scale both independently to fit in double-precision floats, then adjust by the difference in exponents
       const nSmall = Number(this.numerator >> nShift);
       const dSmall = Number(this.denominator >> dShift);
-      
       return (nSmall / dSmall) * Math.pow(2, nBits - dBits);
     }
 
     return Number(this.numerator) / Number(this.denominator);
   }
 
-  /**
-   * Approximates the current ratio to a simpler fraction that maintains 
-   * precision up to the specified number of decimal places.
-   * Uses Continued Fraction convergents to find the best rational approximation.
-   */
-  /**
-   * Approximates the current ratio to a simpler fraction using continued fractions.
-   * @param digits Maximum number of digits allowed in the denominator.
-   */
   public approximate(digits: number = 15): this {
+    if (this._nativeHandle) {
+        NativeBridge.approximate(this._nativeHandle, digits);
+        return this;
+    }
     return this.pureApproximate(digits);
   }
 
-  /**
-   * Pure rational approximation without converting to float.
-   * Finds the best convergent where the denominator does not exceed maxDenominatorDigits.
-   */
   public pureApproximate(maxDenominatorDigits: number = 50): this {
-    // console.log(`[PrecisionLimit] Approximating to ${maxDenominatorDigits} digits...`);
     let a = this.abs(this.numerator);
     let b = this.abs(this.denominator);
     const originalSign = (this.numerator < 0n) !== (this.denominator < 0n);
@@ -347,14 +374,10 @@ export class Gracio {
     while (b !== 0n) {
       const q = a / b;
       const r = a % b;
-
       const h = q * h_prev1 + h_prev2;
       const k = q * k_prev1 + k_prev2;
 
-      // If the new denominator exceeds our digit limit, stop and use the last valid convergent.
-      if (k.toString().length > maxDenominatorDigits) {
-        break;
-      }
+      if (k.toString().length > maxDenominatorDigits) break;
 
       h_prev2 = h_prev1;
       h_prev1 = h;
@@ -367,11 +390,13 @@ export class Gracio {
 
     this.numerator = originalSign ? -h_prev1 : h_prev1;
     this.denominator = k_prev1;
-    // Convergents are already in simplest form, no need to simplify().
     return this;
   }
 
   toString(): string {
+    if (this._nativeHandle) {
+        return NativeBridge.toString(this._nativeHandle);
+    }
     this.simplify();
     return `${this.numerator}/${this.denominator}`;
   }

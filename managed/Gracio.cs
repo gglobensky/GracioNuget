@@ -18,6 +18,9 @@ namespace Gracio {
             public static extern void gracio_destroy(IntPtr g);
 
             [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
+            public static extern IntPtr gracio_clone(IntPtr g);
+
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern void gracio_set_precision_limit(IntPtr g, uint limit);
 
             [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
@@ -30,7 +33,13 @@ namespace Gracio {
             public static extern void gracio_multiply(IntPtr a, IntPtr b);
 
             [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
-            public static extern void gracio_divide(IntPtr a, IntPtr b);
+            public static extern int try_gracio_divide(IntPtr a, IntPtr b);
+
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
+            public static extern void gracio_power(IntPtr a, long exp);
+
+            [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
+            public static extern IntPtr gracio_root(uint index, IntPtr value);
 
             [DllImport("gracio_native", CallingConvention = CallingConvention.Cdecl)]
             public static extern double gracio_to_double(IntPtr g);
@@ -53,12 +62,33 @@ namespace Gracio {
             if (_handle == IntPtr.Zero) throw new OutOfMemoryException("Failed to create native Gracio object.");
         }
 
-        // --- API ---
+        public static Ratio ParseNumber(string s) {
+            if (s.Contains('.')) {
+                return new Ratio(double.Parse(s));
+            } else {
+                return new Ratio(long.Parse(s), 1);
+            }
+        }
+
+        // Internal constructor for cloning/internal use
+        internal Ratio(IntPtr handle) {
+            _handle = handle;
+        }
+
+        // --- Lifecycle & Utilities ---
+        public Ratio Clone() {
+            CheckDisposed();
+            IntPtr clonedHandle = Native.gracio_clone(_handle);
+            if (clonedHandle == IntPtr.Zero) throw new OutOfMemoryException("Failed to clone native Gracio object.");
+            return new Ratio(clonedHandle);
+        }
+
         public uint PrecisionLimit {
             get => 0; // Getter not implemented in C-API yet
             set => Native.gracio_set_precision_limit(_handle, value);
         }
 
+        // --- Mutable API (In-place) ---
         public Ratio Add(Ratio other) {
             CheckDisposed();
             Native.gracio_add(_handle, other._handle);
@@ -79,10 +109,51 @@ namespace Gracio {
 
         public Ratio Divide(Ratio other) {
             CheckDisposed();
-            Native.gracio_divide(_handle, other._handle);
+            int result = Native.try_gracio_divide(_handle, other._handle);
+            if (result == 1) throw new DivideByZeroException("Cannot divide by zero.");
+            if (result == -1) throw new ArgumentException("Invalid native handles provided.");
             return this;
         }
 
+        public Ratio Power(long exp) {
+            CheckDisposed();
+            Native.gracio_power(_handle, exp);
+            return this;
+        }
+
+        // --- Operator Overloads (Immutable-style) ---
+        public static Ratio operator +(Ratio a, Ratio b) {
+            return a.Clone().Add(b);
+        }
+
+        public static Ratio operator -(Ratio a, Ratio b) {
+            return a.Clone().Subtract(b);
+        }
+
+        public static Ratio operator *(Ratio a, Ratio b) {
+            return a.Clone().Multiply(b);
+        }
+
+        public static Ratio operator /(Ratio a, Ratio b) {
+            return a.Clone().Divide(b);
+        }
+
+        public static Ratio operator ^(Ratio a, long exp) {
+            return a.Clone().Power(exp);
+        }
+
+        public static IntPtr NativeRoot(uint index, Ratio value) {
+            return Native.gracio_root(index, value._handle);
+        }
+
+        public static Ratio Evaluate(string expression) {
+            var lexer = new Lexer();
+            var tokens = lexer.Tokenize(expression);
+            var parser = new Parser(tokens);
+            return parser.Parse();
+        }
+
+        // --- Output ---
         public double ToDouble() {
             CheckDisposed();
             return Native.gracio_to_double(_handle);
